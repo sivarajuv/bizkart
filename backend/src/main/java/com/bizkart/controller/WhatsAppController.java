@@ -28,20 +28,31 @@ public class WhatsAppController {
         this.whatsAppService = whatsAppService;
     }
 
-    /** Returns a wa.me link for the given order + phone number */
+    /**
+     * Returns a wa.me link for the given order. `phone` is optional — when
+     * omitted, defaults to the order's own shop's phone number (falling back
+     * to whatsapp.shop.phone), so the admin UI doesn't need to already know
+     * which number to send to.
+     */
     @GetMapping("/order/{id}/link")
     public ResponseEntity<?> getWaLink(
         @PathVariable Long id,
-        @RequestParam String phone
+        @RequestParam(required = false) String phone
     ) {
         try {
             OnlineOrder order = orderService.getOrder(id);
-            String link = whatsAppService.buildWaLink(phone, order);
+            String targetPhone = (phone != null && !phone.isBlank()) ? phone : whatsAppService.resolvePhone(order);
+            if (targetPhone == null || targetPhone.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "No WhatsApp number configured for this shop. Set a phone number on the shop, or whatsapp.shop.phone as a fallback."
+                ));
+            }
+            String link = whatsAppService.buildWaLink(targetPhone, order);
             String message = whatsAppService.buildOrderMessage(order);
             return ResponseEntity.ok(Map.of(
                 "link", link,
                 "message", message,
-                "phone", phone
+                "phone", targetPhone
             ));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

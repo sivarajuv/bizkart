@@ -68,6 +68,33 @@ public class InvoiceController {
             ));
         }
 
+        // The template below has 16 "%s"/"%.2f" placeholders total. The previous
+        // version only supplied 12 arguments to .formatted(...) — every invoice
+        // hit a MissingFormatArgumentException ("Format specifier '%s'") as soon
+        // as it reached the coupon/loyalty/total/footer placeholders, which is
+        // exactly the "Error format Specifier %s" the customer app was showing.
+        // Building the two optional discount rows as their own HTML snippets
+        // (empty string when not applicable) keeps every row a well-formed
+        // <tr>...</tr> instead of splicing a bare number into the table.
+        String couponRow = o.getCouponDiscount() != null && o.getCouponDiscount().signum() > 0
+                ? String.format(
+                    "<tr><td>Coupon%s</td><td style='text-align:right'>−₹%.2f</td></tr>",
+                    o.getCouponCode() != null ? " (" + o.getCouponCode() + ")" : "",
+                    o.getCouponDiscount())
+                : "";
+
+        java.math.BigDecimal loyaltyDiscount = o.getDiscount() != null
+                ? o.getDiscount().subtract(o.getCouponDiscount() != null ? o.getCouponDiscount() : java.math.BigDecimal.ZERO)
+                : java.math.BigDecimal.ZERO;
+        String loyaltyRow = o.getLoyaltyPointsUsed() > 0 && loyaltyDiscount.signum() > 0
+                ? String.format(
+                    "<tr><td>Loyalty (%d pts)</td><td style='text-align:right'>−₹%.2f</td></tr>",
+                    o.getLoyaltyPointsUsed(), loyaltyDiscount)
+                : "";
+
+        String orderDate = o.getCreatedAt() != null ? o.getCreatedAt().format(fmt) : "";
+        String paymentMethod = o.getPaymentMethod() != null ? o.getPaymentMethod().name() : "";
+
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -160,6 +187,10 @@ public class InvoiceController {
                 rows.toString(),
                 o.getSubtotal(),
                 o.getDeliveryFee(),
-                o.getCouponDiscount() != null ? o.getCouponDiscount() : "");
+                couponRow,
+                loyaltyRow,
+                o.getTotalAmount(),
+                orderDate,
+                paymentMethod);
     }
 }

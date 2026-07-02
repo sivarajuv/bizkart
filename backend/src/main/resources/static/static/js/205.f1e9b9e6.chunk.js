@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkbizkart_frontend=self.webpackChunkbizkart_frontend||[]).push([[205],{2205(e,n,p){const t=(0,p(5403).F3)("App",{web:()=>p.e(551).then(p.bind(p,6551)).then(e=>new e.AppWeb)});p.d(n,["App",0,t])}}]);
+//# sourceMappingURL=205.f1e9b9e6.chunk.js.map

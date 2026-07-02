@@ -25,6 +25,13 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body {
+  /* Safety net: stops any single stray fixed-width element from making the
+     whole page horizontally scrollable on a narrow phone screen. */
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
@@ -889,22 +896,48 @@ tr:hover td { background: rgba(26, 122, 74, 0.03); }
   }
 
   .sidebar {
+    /* Explicit top/left/bottom instead of the `inset` shorthand: some Android
+       WebView builds (what Capacitor apps render with) parse `inset` inconsistently,
+       which silently breaks `position: fixed` pinning — the sidebar then scrolls
+       away with the page instead of staying put, taking the logout button with it.
+       Longhand properties work everywhere. */
     position: fixed;
-    inset: 0 auto 0 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    max-width: 85vw;
     z-index: 1100;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    /* Belt-and-braces: even if something above still overflows the fixed-height
+       drawer, scroll internally rather than pushing the footer (profile/logout)
+       out of view. */
+    overflow-y: auto;
   }
 
   .sidebar.sidebar-open {
     transform: translateX(0);
   }
 
+  .sidebar-nav {
+    /* Lets the nav item list scroll internally on short screens while the
+       brand header and the profile/logout footer stay pinned in place —
+       logout should never require scrolling past a long nav list to reach. */
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   .sidebar-backdrop {
     display: block;
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1090;
     border: none;
     background: rgba(15, 36, 25, 0.45);

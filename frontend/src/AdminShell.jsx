@@ -23,7 +23,7 @@ import Coupons from './pages/Coupons';
 import CustomerAnalytics from './pages/CustomerAnalytics';
 import DynamicPricing from './pages/DynamicPricing';
 import SmsMarketing from './pages/SmsMarketing';
-import { authAPI, onlineOrderAPI } from './services/api';
+import { authAPI, onlineOrderAPI, shopAPI } from './services/api';
 import {
   DEFAULT_LANGUAGE, DEFAULT_PLATFORM_SUBTITLE,
   PASSWORD_MIN_LENGTH, USER_ROLES,
@@ -55,7 +55,11 @@ const NAV_CASHIER = [
   { id: 'products',      labelKey: 'products',     icon: '▦'  },
 ];
 
-// ── WhatsApp Helper ─────────────────────────────────────────────────────────
+// Short embedded notification beep (~150ms). The previous data URI here was
+// truncated with a literal "..." at the end — not valid base64 — so it always
+// failed to decode and no sound ever played on a new order.
+const NOTIFY_SOUND = 'data:audio/wav;base64,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';
+
 function buildWhatsAppMessage(order) {
   const lines = [
     `🛒 *New Order Received!*`,
@@ -111,13 +115,25 @@ function OrderNotificationBanner({ orders, shopPhone, onDismiss }) {
 // ── WhatsApp Settings Modal ─────────────────────────────────────────────────
 function WhatsAppModal({ currentPhone, onSave, onClose }) {
   const [phone, setPhone] = useState(currentPhone || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(phone);
+    setSaving(false);
+    onClose();
+  };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 360, maxWidth: '90vw', boxSizing: 'border-box', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>📱 WhatsApp Alerts</div>
         <div style={{ fontSize: 13, color: '#888', marginBottom: 20, lineHeight: 1.5 }}>
-          Enter the shop owner's WhatsApp number. A message will be sent automatically when a new order arrives.
+          Enter the shop's WhatsApp number. When a new order arrives, a banner appears in your dashboard with a
+          one-tap button to send the order details to this number — browsers block truly automatic pop-ups, so
+          that one tap is what actually gets the message sent reliably. This number is saved to your shop and
+          works the same on the website and the Android app.
         </div>
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#374151' }}>
           WhatsApp Number (with country code)
@@ -132,13 +148,13 @@ function WhatsAppModal({ currentPhone, onSave, onClose }) {
           📌 Format: 10-digit Indian number (we'll add +91 automatically)
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose}
+          <button onClick={onClose} disabled={saving}
             style={{ flex: 1, padding: 10, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', cursor: 'pointer', fontWeight: 600 }}>
             Cancel
           </button>
-          <button onClick={() => { onSave(phone); onClose(); }}
-            style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: '#25d366', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
-            Save & Enable
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: '#25d366', color: '#fff', cursor: 'pointer', fontWeight: 700, opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Save Number'}
           </button>
         </div>
         {phone && (
@@ -197,7 +213,7 @@ function ChangePasswordModal({ onClose }) {
 }
 
 // ── MAIN ADMIN SHELL ────────────────────────────────────────────────────────
-export default function AdminShell({ onGoToShop }) {
+export default function AdminShell() {
   const { user, loading, logout, isSuperAdmin, hasFullShopAccess } = useAuth();
   const { language, setLanguage, languages, t } = useLanguage();
   const [page, setPage] = useState('dashboard');
@@ -210,9 +226,15 @@ export default function AdminShell({ onGoToShop }) {
   // Order notification state
   const [newOrders, setNewOrders] = useState([]);
   const [dismissedIds, setDismissedIds] = useState(new Set());
-  const [whatsappPhone, setWhatsappPhone] = useState(() => localStorage.getItem('bk_wa_phone') || '');
+  // The WhatsApp number now lives on the Shop record server-side (see
+  // ShopController's /api/shops/my/whatsapp-phone), not localStorage — a
+  // localStorage value is per-browser/per-device, so setting it up on the
+  // desktop website would never have carried over to the Android app or a
+  // different staff member's phone. phoneOverride lets a just-saved value
+  // show immediately without waiting on a full re-login to refresh `user`.
+  const [phoneOverride, setPhoneOverride] = useState(null);
+  const whatsappPhone = phoneOverride ?? user?.shop?.phone ?? '';
   const prevOrderIds = useRef(new Set());
-  const audioRef = useRef(null);
 
   const nav = isSuperAdmin() ? NAV_SUPER_ADMIN : hasFullShopAccess() ? NAV_ADMIN : NAV_CASHIER;
 
@@ -237,20 +259,22 @@ export default function AdminShell({ onGoToShop }) {
           return [...prev, ...brandNew.filter(o => !existIds.has(o.id))];
         });
 
-        // Play notification sound
-        try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA...').play().catch(() => {}); } catch {}
+        // Play notification sound (short embedded beep — the previous data
+        // URI was truncated/invalid and silently failed every time).
+        try { new Audio(NOTIFY_SOUND).play().catch(() => {}); } catch {}
 
-        // Auto WhatsApp if phone configured
-        if (whatsappPhone) {
-          brandNew.forEach(o => {
-            setTimeout(() => sendWhatsApp(whatsappPhone, o), 500);
-          });
-        }
+        // NOTE: there is deliberately no automatic WhatsApp popup here
+        // anymore. window.open() called from a timer/background poll (not a
+        // direct click) is blocked by every modern browser's popup blocker,
+        // and silently does nothing in the Android app's WebView too — that
+        // was the actual reason "WhatsApp notifications aren't working."
+        // The banner below renders a real button per order instead, which
+        // opens WhatsApp reliably because it's a direct user click.
 
         placed.forEach(o => prevOrderIds.current.add(o.id));
       }
     } catch {}
-  }, [user, isSuperAdmin, dismissedIds, whatsappPhone]);
+  }, [user, isSuperAdmin, dismissedIds]);
 
   useEffect(() => {
     pollOrders();
@@ -258,9 +282,13 @@ export default function AdminShell({ onGoToShop }) {
     return () => clearInterval(interval);
   }, [pollOrders]);
 
-  const saveWhatsappPhone = (phone) => {
-    setWhatsappPhone(phone);
-    localStorage.setItem('bk_wa_phone', phone);
+  const saveWhatsappPhone = async (phone) => {
+    try {
+      await shopAPI.updateMyWhatsappPhone(phone);
+      setPhoneOverride(phone);
+    } catch (e) {
+      alert(e?.response?.data?.error || 'Could not save WhatsApp number. Please try again.');
+    }
   };
 
   const dismissNotifications = () => {
@@ -345,11 +373,6 @@ export default function AdminShell({ onGoToShop }) {
             </button>
           )}
 
-          {/* Shop link */}
-          <button className="nav-item" onClick={onGoToShop} style={{ marginTop: 4 }}>
-            <span className="nav-icon">🛒</span>
-            <span className="nav-label">Customer Portal</span>
-          </button>
         </nav>
 
         {/* Profile */}
@@ -399,11 +422,6 @@ export default function AdminShell({ onGoToShop }) {
                 📱 {whatsappPhone ? `WA: ${whatsappPhone.slice(-4)}` : 'Setup WhatsApp'}
               </button>
             )}
-            {/* Shop portal button */}
-            <button onClick={onGoToShop}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#16a34a', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#fff' }}>
-              🛒 Shop Portal
-            </button>
             <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('language')}</label>
             <select className="form-select" style={{ width: 130 }} value={language} onChange={e => setLanguage(e.target.value)}>
               {languages.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}

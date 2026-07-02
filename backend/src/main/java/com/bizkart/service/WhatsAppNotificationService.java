@@ -14,15 +14,22 @@ import java.util.Map;
 /**
  * WhatsApp Notification Service
  *
- * Supports two modes:
- *  1. WATI / 360dialog / other BSP — set whatsapp.api.url + whatsapp.api.token
- *  2. wa.me link generation (fallback) — staff opens link manually or via automation
+ * The recipient number is the SHOP's own phone number (Shop.phone) — this is
+ * a multi-tenant platform, so each shop notifies its own number, not a single
+ * global one. whatsapp.shop.phone in application.properties is only a
+ * fallback for a shop that hasn't set its own phone yet.
  *
- * For quick setup without a paid BSP, the frontend opens wa.me links automatically.
- * This service handles server-side notification for automated pipelines.
+ * Supports two delivery modes:
+ *  1. WATI / 360dialog / other BSP — set whatsapp.api.url + whatsapp.api.token.
+ *     Actually sends the message via HTTP API.
+ *  2. wa.me click-to-chat link (no BSP configured) — this service only LOGS
+ *     the link server-side in that case; nothing is delivered automatically.
+ *     The admin Online Orders page has a "Notify via WhatsApp" button that
+ *     fetches this same link (GET /api/whatsapp/order/{id}/link) and opens
+ *     it, which is what actually gets the message to WhatsApp for free.
  *
  * Configure in application.properties:
- *   whatsapp.shop.phone=917259000552
+ *   whatsapp.shop.phone=917259000552   (fallback only, see above)
  *   whatsapp.api.url=https://api.wati.io/api/v1/sendSessionMessage
  *   whatsapp.api.token=YOUR_TOKEN
  *   whatsapp.enabled=true
@@ -32,8 +39,12 @@ public class WhatsAppNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppNotificationService.class);
 
+    // Fallback only — used when a shop hasn't set its own phone number
+    // (Shop.phone). BizKart is multi-tenant: this property must NOT be the
+    // primary source, or every shop's order notifications converge on one
+    // number regardless of which shop actually received the order.
     @Value("${whatsapp.shop.phone:}")
-    private String shopPhone;
+    private String fallbackPhone;
 
     @Value("${whatsapp.api.url:}")
     private String apiUrl;
@@ -87,11 +98,36 @@ public class WhatsAppNotificationService {
     }
 
     /**
+     * Normalize any phone string to a bare digits-only number with the Indian
+     * country code prefixed (e.g. "7259000552" or "+91 72590 00552" both
+     * become "917259000552"). Used consistently by both the wa.me link and
+     * the BSP API payload — previously only buildWaLink() did this, so a
+     * real BSP integration would have silently received un-prefixed numbers.
+     */
+    private String normalizePhone(String phone) {
+        String clean = phone.replaceAll("\\D", "");
+        return clean.startsWith("91") ? clean : "91" + clean;
+    }
+
+    /**
+     * Resolve which phone number should receive this order's notification.
+     * The shop's own number (set on the Shop record) always wins — this is a
+     * multi-tenant platform, so a global fallback number must never be the
+     * primary source or every shop's notifications converge on one inbox.
+     * The `whatsapp.shop.phone` property is only a fallback for shops that
+     * haven't configured their own number yet.
+     */
+    public String resolvePhone(OnlineOrder order) {
+        String shopPhone = order.getShop() != null ? order.getShop().getPhone() : null;
+        if (shopPhone != null && !shopPhone.isBlank()) return shopPhone;
+        return fallbackPhone;
+    }
+
+    /**
      * Build a wa.me URL for manual sending (used by frontend fallback).
      */
     public String buildWaLink(String phone, OnlineOrder order) {
-        String clean = phone.replaceAll("\\D", "");
-        String num = clean.startsWith("91") ? clean : "91" + clean;
+        String num = normalizePhone(phone);
         try {
             String msg = java.net.URLEncoder.encode(buildOrderMessage(order), "UTF-8");
             return "https://wa.me/" + num + "?text=" + msg;
@@ -105,41 +141,52 @@ public class WhatsAppNotificationService {
      * Falls back to logging the wa.me link.
      */
     public void notifyNewOrder(OnlineOrder order) {
-        if (!enabled || shopPhone == null || shopPhone.isBlank()) {
-            log.info("WhatsApp notifications disabled or phone not configured. Order: {}", order.getOrderNumber());
+        String phone = resolvePhone(order);
+        if (!enabled || phone == null || phone.isBlank()) {
+            log.warn("WhatsApp notification skipped for order {} — enabled={}, shop phone set={}. " +
+                    "Set a phone number on the shop (or whatsapp.shop.phone as a fallback) to enable notifications.",
+                    order.getOrderNumber(), enabled, phone != null && !phone.isBlank());
             return;
         }
 
         String message = buildOrderMessage(order);
 
         if (apiUrl != null && !apiUrl.isBlank() && apiToken != null && !apiToken.isBlank()) {
-            sendViaBSP(message);
+            sendViaBSP(message, phone, order.getOrderNumber());
         } else {
-            // Log the wa.me link so it can be picked up by automation or displayed in logs
-            log.info("WhatsApp wa.me link for order {}: {}", order.getOrderNumber(), buildWaLink(shopPhone, order));
+            // No BSP configured (whatsapp.api.url/token blank) — there is no
+            // automated delivery mechanism in that case. This log line alone
+            // does NOT notify anyone; the admin must use the "Notify via
+            // WhatsApp" button in the Online Orders page (or GET
+            // /api/whatsapp/order/{id}/link) to actually open this link.
+            log.info("WhatsApp wa.me link for order {}: {}", order.getOrderNumber(), buildWaLink(phone, order));
         }
     }
 
-    private void sendViaBSP(String message) {
+    private void sendViaBSP(String message, String phone, String orderNumber) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + apiToken);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             Map<String, String> body = new HashMap<>();
-            body.put("whatsappNumber", shopPhone);
+            body.put("whatsappNumber", normalizePhone(phone));
             body.put("messageText", message);
 
             HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("WhatsApp notification sent successfully to {}", shopPhone);
+                log.info("WhatsApp notification sent successfully for order {} to {}", orderNumber, phone);
             } else {
-                log.warn("WhatsApp API returned: {} — {}", response.getStatusCode(), response.getBody());
+                log.warn("WhatsApp API returned non-success for order {}: {} — {}",
+                        orderNumber, response.getStatusCode(), response.getBody());
             }
         } catch (Exception e) {
-            log.error("Failed to send WhatsApp notification: {}", e.getMessage());
+            // Logged with full context (order number + exception) instead of
+            // just the message string, so a real failure is actually
+            // diagnosable instead of vanishing into a one-line log entry.
+            log.error("Failed to send WhatsApp notification for order {}: {}", orderNumber, e.getMessage(), e);
         }
     }
 }

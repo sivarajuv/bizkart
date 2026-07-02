@@ -76,6 +76,9 @@ export const shopAPI = {
   update: (id, data) => api.put(`/api/shops/${id}`, data),
   toggleStatus: (id) => api.patch(`/api/shops/${id}/toggle-status`),
   delete: (id) => api.delete(`/api/shops/${id}`),
+  // Available to ADMIN/MANAGER for their own shop, unlike the rest of
+  // shopAPI which is SUPER_ADMIN-only on the backend.
+  updateMyWhatsappPhone: (phone) => api.patch('/api/shops/my/whatsapp-phone', { phone }),
 };
 
 // ── NEW: Online Orders (shop staff) ────────────────────────────────────────
@@ -85,6 +88,14 @@ export const onlineOrderAPI = {
   getAll:    () => api.get('/api/shop-orders'),
   updateStatus: (id, status, note) =>
     api.patch(`/api/shop-orders/${id}/status`, { status, note }),
+};
+
+// ── NEW: WhatsApp order notification (click-to-chat, no BSP account needed) ─
+
+export const whatsAppAPI = {
+  // phone is optional — server defaults to the order's own shop phone number
+  getOrderLink: (orderId, phone) =>
+    api.get(`/api/whatsapp/order/${orderId}/link`, { params: phone ? { phone } : {} }),
 };
 
 // ── NEW: Customer Portal (separate customer JWT) ────────────────────────────

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { onlineOrderAPI } from '../services/api';
+import { onlineOrderAPI, whatsAppAPI } from '../services/api';
 
 const STATUS_CFG = {
   PLACED:           { label:'New Order',         color:'#3b82f6', bg:'#eff6ff' },
@@ -51,6 +51,8 @@ function OrderCard({ order, onUpdate }) {
   const [open, setOpen] = useState(false);
   const [note, setNote]  = useState('');
   const [busy, setBusy]  = useState(false);
+  const [waBusy, setWaBusy] = useState(false);
+  const [waErr, setWaErr]   = useState('');
   const active = !['DELIVERED','PICKED_UP','CANCELLED','REFUNDED'].includes(order.status);
 
   const advance = async (newStatus) => {
@@ -59,6 +61,21 @@ function OrderCard({ order, onUpdate }) {
       await onUpdate(order.id, newStatus, note || STATUS_CFG[newStatus]?.label || '');
       setNote('');
     } finally { setBusy(false); }
+  };
+
+  const notifyWhatsApp = async (e) => {
+    e.stopPropagation();
+    setWaErr(''); setWaBusy(true);
+    try {
+      const res = await whatsAppAPI.getOrderLink(order.id);
+      // Opened directly from the click handler (not after an intermediate
+      // await-then-open in a different tick) would be ideal for popup
+      // blockers, but the link depends on a network response, so most
+      // browsers/WebViews still allow this since it's a direct user gesture.
+      window.open(res.data.link, '_blank', 'noopener');
+    } catch (ex) {
+      setWaErr(ex.response?.data?.error || 'Could not build WhatsApp link — is a phone number set for this shop?');
+    } finally { setWaBusy(false); }
   };
 
   const nextActions = () => {
@@ -99,6 +116,13 @@ function OrderCard({ order, onUpdate }) {
           </div>
           {order.deliveryAddressText && <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 12px', marginBottom:10, fontSize:13 }}>📍 {order.deliveryAddressText}</div>}
           {order.customerNotes && <div style={{ background:'#fffbeb', borderRadius:8, padding:'9px 12px', marginBottom:10, fontSize:13 }}>💬 {order.customerNotes}</div>}
+
+          <button onClick={notifyWhatsApp} disabled={waBusy}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', marginBottom:10, border:'1px solid #bbf7d0', borderRadius:8, background:'#f0fdf4', color:'#15803d', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+            📱 {waBusy ? 'Opening…' : 'Notify via WhatsApp'}
+          </button>
+          {waErr && <div style={{ color:'#b91c1c', fontSize:12, marginBottom:10 }}>{waErr}</div>}
+
           {active && (
             <div>
               <input style={{ width:'100%', padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:13, boxSizing:'border-box', marginBottom:8, color:'#111' }}

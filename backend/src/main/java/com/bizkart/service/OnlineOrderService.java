@@ -2,6 +2,8 @@ package com.bizkart.service;
 
 import com.bizkart.model.*;
 import com.bizkart.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +14,8 @@ import java.util.List;
 
 @Service
 public class OnlineOrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OnlineOrderService.class);
 
     private final OnlineOrderRepository orderRepo;
     private final ProductRepository productRepo;
@@ -180,13 +184,15 @@ public class OnlineOrderService {
                 loyaltyService.addPoints(customerAccountId, pointsEarned);
         } catch (Exception ignored) {}
 
-        // Trigger WhatsApp notification
+        // Trigger WhatsApp notification — non-blocking (a notification failure
+        // must never fail the order itself), but the failure is now actually
+        // logged instead of silently vanishing, so it's diagnosable.
         try {
             if (whatsAppService != null) {
                 whatsAppService.notifyNewOrder(finalOrder);
             }
         } catch (Exception e) {
-            // Non-blocking — don't fail the order if notification fails
+            log.error("WhatsApp notification failed for order {}: {}", finalOrder.getOrderNumber(), e.getMessage(), e);
         }
 
         return finalOrder;

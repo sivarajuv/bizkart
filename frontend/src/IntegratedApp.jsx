@@ -79,10 +79,7 @@ function Router() {
     return (
       <LanguageProvider preferredLanguage={user?.shop?.defaultLanguage || 'en'}>
         <CartProvider>
-          <AdminShell
-            onGoToShop={() => pushRoute('/shop')}
-            onLogout={() => pushRoute('/')}
-          />
+          <AdminShell />
         </CartProvider>
       </LanguageProvider>
     );
@@ -92,115 +89,46 @@ function Router() {
   return <LandingPage onNavigate={pushRoute} />;
 }
 
-/* ── Landing Page ──────────────────────────────────────────────────────── */
+/* ── Landing Page ──────────────────────────────────────────────────────────
+ * Deliberately minimal: exactly two entry points (customer / business), no
+ * marketing scroll. Sized in relative units (%, vw-capped max-widths) so it
+ * fits any phone/tablet/desktop without horizontal scroll or clipped content,
+ * and centers as a single card rather than a multi-section page. ────────── */
 function LandingPage({ onNavigate, autoOpenLogin = false }) {
   const [showLogin, setShowLogin] = useState(autoOpenLogin);
 
   return (
     <div style={L.page}>
-      {/* Header */}
-      <div style={L.header}>
-        <div style={L.logo}>
-          <span style={{ fontSize: 26 }}>🛒</span>
+      <div style={L.card}>
+        <div style={L.logoRow}>
+          <span style={{ fontSize: 40 }}>🛒</span>
           <span style={L.logoText}>BizKart</span>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button style={L.navBtn}        onClick={() => onNavigate('/shop')}>Order Online</button>
-          <button style={L.navBtnPrimary} onClick={() => setShowLogin(true)}>Business Login</button>
-        </div>
-      </div>
+        <p style={L.tagline}>Order from local stores, or manage your own.</p>
 
-      {/* Hero */}
-      <div style={L.hero}>
-        <div style={{ flex: '1 1 480px', maxWidth: 560 }}>
-          <div style={L.heroTag}>Multi-Business Platform</div>
-          <h1 style={L.heroTitle}>Order from Local Stores.<br />Manage Your Business.</h1>
-          <p style={L.heroSub}>BizKart connects customers with local shops and gives business owners powerful tools to manage orders, inventory, and delivery — all in one place.</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button style={L.btnGreen} onClick={() => onNavigate('/shop')}>🛒 Shop Now</button>
-            <button style={L.btnWhite} onClick={() => setShowLogin(true)}>🏪 Business Login</button>
-          </div>
-        </div>
+        <button style={L.choiceGreen} onClick={() => onNavigate('/shop')}>
+          <span style={L.choiceIcon}>🛍️</span>
+          <span style={L.choiceText}>
+            <span style={L.choiceTitle}>Shop Now</span>
+            <span style={L.choiceSub}>Browse & order from local shops</span>
+          </span>
+          <span style={L.choiceArrow}>›</span>
+        </button>
 
-        <div style={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={L.card}>
-            <div style={{ fontSize: 30, marginBottom: 10 }}>📱</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Customer App</div>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.5 }}>Browse shops, add to cart, choose delivery or pickup, pay & track your order.</div>
-            <button style={{ ...L.btnGreen, padding: '10px 20px', fontSize: 13 }} onClick={() => onNavigate('/shop')}>Start Shopping →</button>
-          </div>
-          <div style={L.card}>
-            <div style={{ fontSize: 30, marginBottom: 10 }}>🏪</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Business Dashboard</div>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.5 }}>Accept orders, manage inventory, get WhatsApp alerts & view reports.</div>
-            <button style={{ ...L.btnWhite, padding: '10px 20px', fontSize: 13 }} onClick={() => setShowLogin(true)}>Admin Login →</button>
-          </div>
-        </div>
-      </div>
+        <button style={L.choiceDark} onClick={() => setShowLogin(true)}>
+          <span style={L.choiceIcon}>🏪</span>
+          <span style={L.choiceText}>
+            <span style={L.choiceTitle}>Business Login</span>
+            <span style={L.choiceSub}>Manage orders, inventory & staff</span>
+          </span>
+          <span style={L.choiceArrow}>›</span>
+        </button>
 
-      {/* Features */}
-      <div style={{ background: '#f9fafb', padding: '60px 32px' }}>
-        <h2 style={L.sectionTitle}>Everything you need</h2>
-        <div style={L.grid4}>
-          {[
-            { icon: '🛵', title: 'Home Delivery',      desc: 'Customers order online, you assign a delivery agent.' },
-            { icon: '🏪', title: 'Store Pickup',        desc: 'Customers order ahead and collect from the counter.' },
-            { icon: '📦', title: 'Live Order Board',    desc: 'Kanban board: New → Preparing → Delivered.' },
-            { icon: '📱', title: 'WhatsApp Alerts',     desc: 'Instant WhatsApp message when a new order arrives.' },
-            { icon: '💳', title: 'Multiple Payments',   desc: 'COD, UPI QR and Card — customer chooses.' },
-            { icon: '📊', title: 'Business Reports',    desc: 'Daily revenue, top products, profit/loss.' },
-            { icon: '🤖', title: 'AI Assistant',        desc: 'Ask questions about your business in plain language.' },
-            { icon: '🌐', title: 'Multi-Language',      desc: 'English, Hindi, Telugu, Tamil, Kannada and more.' },
-          ].map(f => (
-            <div key={f.title} style={L.featCard}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>{f.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{f.title}</div>
-              <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{f.desc}</div>
-            </div>
-          ))}
+        <div style={L.footer}>
+          <a href="tel:7259000552" style={L.footerLink}>📞 7259000552</a>
+          <span style={L.footerDot}>·</span>
+          <a href="mailto:siva82k@gmail.com" style={L.footerLink}>✉ Support</a>
         </div>
-      </div>
-
-      {/* How it works */}
-      <div style={{ padding: '60px 32px', maxWidth: 900, margin: '0 auto' }}>
-        <h2 style={L.sectionTitle}>How it works</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          {[
-            {
-              title: '👤 For Customers',
-              steps: ['Register with phone number', 'Browse shops and products', 'Add to cart and checkout', 'Choose delivery or pickup', 'Pay online or cash on delivery', 'Track order in real-time'],
-              btn: '🛒 Try it now', action: () => onNavigate('/shop'), primary: true,
-            },
-            {
-              title: '🏪 For Shop Owners',
-              steps: ['Login with business code', 'View live incoming orders', 'Accept & prepare the order', 'Assign delivery agent', 'Get WhatsApp notification', 'Track revenue and reports'],
-              btn: '🔑 Admin Login', action: () => setShowLogin(true), primary: false,
-            },
-          ].map(col => (
-            <div key={col.title} style={{ background: '#f9fafb', borderRadius: 16, padding: 28, border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 18 }}>{col.title}</div>
-              {col.steps.map((s, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, fontSize: 14 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#16a34a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
-                  {s}
-                </div>
-              ))}
-              <button style={{ ...(col.primary ? L.btnGreen : L.btnWhite), marginTop: 16 }} onClick={col.action}>{col.btn}</button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ background: '#1a1a1a', color: '#fff', padding: '32px', textAlign: 'center' }}>
-        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>🛒 BizKart</div>
-        <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-          <button onClick={() => onNavigate('/shop')} style={{ color: '#9ca3af', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>Customer Portal</button>
-          <button onClick={() => setShowLogin(true)} style={{ color: '#9ca3af', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>Admin Panel</button>
-          <a href="tel:7259000552"      style={{ color: '#9ca3af', fontSize: 13, textDecoration: 'none' }}>📞 7259000552</a>
-          <a href="mailto:siva82k@gmail.com" style={{ color: '#9ca3af', fontSize: 13, textDecoration: 'none' }}>✉ siva82k@gmail.com</a>
-        </div>
-        <div style={{ fontSize: 12, color: '#6b7280' }}>© 2025 BizKart · Multi-business retail platform</div>
       </div>
 
       {/* Login modal — uses useAuth internally, safe because we're inside AuthProvider */}
@@ -328,28 +256,58 @@ function LoginModal({ onClose, onSuccess }) {
   );
 }
 
-/* ── Styles ──────────────────────────────────────────────────────────────── */
+/* ── Styles ────────────────────────────────────────────────────────────────
+ * Landing page is one centered card, sized with relative/clamped units so it
+ * never overflows a small phone screen or looks lost on a desktop tab. ───── */
 const L = {
-  page:         { fontFamily: 'system-ui,sans-serif', background: '#fff', minHeight: '100vh' },
-  header:       { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, background: '#fff', zIndex: 100 },
-  logo:         { display: 'flex', alignItems: 'center', gap: 10 },
-  logoText:     { fontSize: 22, fontWeight: 800, color: '#1a1a1a' },
-  navBtn:       { padding: '8px 20px', border: '1.5px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#374151' },
-  navBtnPrimary:{ padding: '8px 20px', border: 'none', borderRadius: 8, background: '#16a34a', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#fff' },
-  hero:         { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 40px', gap: 40, maxWidth: 1200, margin: '0 auto', flexWrap: 'wrap' },
-  heroTag:      { display: 'inline-block', background: '#dcfce7', color: '#16a34a', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, marginBottom: 16 },
-  heroTitle:    { fontSize: 42, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2, margin: '0 0 16px' },
-  heroSub:      { fontSize: 16, color: '#6b7280', lineHeight: 1.6, margin: '0 0 28px' },
-  btnGreen:     { padding: '13px 28px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer' },
-  btnWhite:     { padding: '13px 28px', background: '#fff', color: '#374151', border: '2px solid #e5e7eb', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer' },
-  card:         { background: '#f9fafb', borderRadius: 16, padding: 24, border: '1px solid #e5e7eb' },
-  sectionTitle: { fontSize: 28, fontWeight: 800, color: '#1a1a1a', marginBottom: 32, textAlign: 'center' },
-  grid4:        { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, maxWidth: 1100, margin: '0 auto' },
-  featCard:     { background: '#fff', borderRadius: 14, padding: '22px 18px', border: '1px solid #e5e7eb' },
+  page: {
+    fontFamily: 'system-ui,sans-serif',
+    minHeight: '100vh',
+    background: 'linear-gradient(160deg, #16a34a 0%, #0f2419 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px 16px',
+    boxSizing: 'border-box',
+  },
+  card: {
+    width: '100%',
+    maxWidth: 380,
+    background: '#fff',
+    borderRadius: 24,
+    padding: '36px 28px 28px',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+    boxSizing: 'border-box',
+  },
+  logoRow:  { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
+  logoText: { fontSize: 26, fontWeight: 800, color: '#1a1a1a', fontFamily: "'Syne', system-ui, sans-serif" },
+  tagline:  { textAlign: 'center', color: '#6b7280', fontSize: 13.5, margin: '8px 0 28px', lineHeight: 1.5 },
+
+  choiceGreen: {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+    padding: '16px 18px', marginBottom: 12, border: 'none', borderRadius: 16,
+    background: '#16a34a', color: '#fff', cursor: 'pointer', textAlign: 'left',
+    boxSizing: 'border-box',
+  },
+  choiceDark: {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+    padding: '16px 18px', marginBottom: 4, border: 'none', borderRadius: 16,
+    background: '#101827', color: '#fff', cursor: 'pointer', textAlign: 'left',
+    boxSizing: 'border-box',
+  },
+  choiceIcon:  { fontSize: 26, flexShrink: 0 },
+  choiceText:  { flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+  choiceTitle: { fontSize: 16, fontWeight: 700 },
+  choiceSub:   { fontSize: 12, opacity: 0.8 },
+  choiceArrow: { fontSize: 22, opacity: 0.7, flexShrink: 0 },
+
+  footer:     { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
+  footerLink: { color: '#9ca3af', fontSize: 12, textDecoration: 'none' },
+  footerDot:  { color: '#d1d5db', fontSize: 12 },
 };
 
 const M = {
-  overlay:   { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
+  overlay:   { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
   box:       { background: '#fff', borderRadius: 20, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 24px 60px rgba(0,0,0,0.18)' },
   closeBtn:  { background: '#f3f4f6', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   group:     { marginBottom: 16 },

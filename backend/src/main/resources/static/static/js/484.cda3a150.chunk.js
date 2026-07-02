@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkbizkart_frontend=self.webpackChunkbizkart_frontend||[]).push([[484],{6484(e,s,n){n.d(s,{SplashScreenWeb:()=>c});var a=n(5403);class c extends a.E_{async show(e){}async hide(e){}}}}]);
+//# sourceMappingURL=484.cda3a150.chunk.js.map

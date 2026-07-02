@@ -153,6 +153,12 @@ public class SecurityConfig {
                     .hasAnyRole("SUPER_ADMIN", "ADMIN")
 
                 // ── Shops ─────────────────────────────────────────────────
+                // More specific pattern must be registered before the general
+                // /api/shops/** catch-all below, or Spring Security's ordered
+                // matcher list would apply the SUPER_ADMIN-only rule to this
+                // path too and shop staff could never reach it.
+                .requestMatchers(HttpMethod.PATCH, "/api/shops/my/whatsapp-phone")
+                    .hasAnyRole("SUPER_ADMIN", "ADMIN", "MANAGER")
                 .requestMatchers("/api/shops/**")
                     .hasRole("SUPER_ADMIN")
 
