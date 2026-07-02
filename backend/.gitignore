@@ -1,0 +1,17 @@
+# Maven build output — includes compiled classes, which bake in whatever
+# application.properties contained at build time (this is exactly how a real
+# API key ended up committed before this file existed). Never track this.
+target/
+
+# Local overrides — for developers who want to override application.properties
+# without touching the tracked file (e.g. real local DB credentials)
+application-local.properties
+.env
+.env.local
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store

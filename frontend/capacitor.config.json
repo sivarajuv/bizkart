@@ -1,0 +1,20 @@
+{
+  "appId": "in.mybizkart.app",
+  "appName": "BizKart",
+  "webDir": "build",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#16a34a",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#16a34a"
+    }
+  }
+}

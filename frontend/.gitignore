@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Production builds
+build/
+build-mobile/
+
+# Env files with secrets/local overrides
+.env.local
+.env.*.local
+
+# Capacitor / Android (android/.gitignore already covers most of android/**;
+# these two catch stray top-level build state if Capacitor is re-synced here)
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# iOS (once `npx cap add ios` is run locally)
+ios/App/Pods/
+ios/App/build/
+ios/App/App/public/
+
+# IDE
+.idea/
+*.iml
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store

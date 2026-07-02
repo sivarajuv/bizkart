@@ -1,0 +1,13 @@
+#!/bin/sh
+# Maven Wrapper - downloads Maven if needed and runs it
+MAVEN_WRAPPER_JAR=".mvn/wrapper/maven-wrapper.jar"
+MAVEN_WRAPPER_PROPERTIES=".mvn/wrapper/maven-wrapper.properties"
+
+if [ ! -f "$MAVEN_WRAPPER_JAR" ]; then
+    echo "Downloading Maven Wrapper..."
+    mkdir -p .mvn/wrapper
+    curl -sL https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o "$MAVEN_WRAPPER_JAR" 2>/dev/null || \
+    wget -q https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -O "$MAVEN_WRAPPER_JAR" 2>/dev/null
+fi
+
+exec java -jar "$MAVEN_WRAPPER_JAR" "$@"

@@ -1,0 +1,158 @@
+name: Build Android App
+
+# Produces a real, installable Android APK/AAB from the BizKart React frontend.
+#
+# Why this runs on GitHub Actions and not locally in a dev sandbox: building an
+# Android app requires downloading the Android SDK, Gradle, and Google's Maven
+# repo (dl.google.com, maven.google.com, services.gradle.org) — dozens of
+# gigabytes of tooling that most CI-less environments either can't reach or
+# don't have installed. GitHub's runners have all of that preinstalled/reachable,
+# so this is the fastest path to a real compiled app without installing Android
+# Studio on your own machine.
+#
+# Triggers:
+#   - Push to main (only when frontend/ changes) → builds a debug APK automatically
+#   - Manual "Run workflow" button → also builds a debug APK
+#
+# Output: download the APK from the workflow run's "Artifacts" section (bottom
+# of the run summary page). Install it on an Android phone (or emulator) via
+# `adb install app-debug.apk`, or just tap the file after transferring it to
+# the phone (enable "Install unknown apps" for whatever app you use to open it).
+#
+# This builds an unsigned DEBUG apk, good for testing on real devices. For a
+# Play Store submission you need a signed RELEASE build — see
+# frontend/PLAY_STORE_GUIDE.md for the extra keystore/signing steps.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build React app for the native shell
+        run: npm run build:mobile
+        # Uses REACT_APP_API_URL=https://mybizkart.in (see package.json) so the
+        # app talks to the live backend instead of a relative/same-origin path
+        # that doesn't exist inside a native app shell.
+
+      - name: Sync web build into the Android project
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bizkart-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  # Builds a signed release .aab (Android App Bundle) — the format Play Store
+  # requires for new submissions. Only runs once you've added the signing
+  # secrets below in GitHub repo Settings → Secrets and variables → Actions.
+  # See frontend/PLAY_STORE_GUIDE.md for how to generate the keystore and
+  # what each secret should contain. Until those secrets exist, this job is
+  # skipped automatically (the debug APK job above still runs normally).
+  build-signed-release-aab:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_SIGNING == 'true'
+
+      - name: Set up Node.js
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up JDK 17
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: env.HAS_SIGNING == 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Install frontend dependencies
+        if: env.HAS_SIGNING == 'true'
+        run: npm ci
+
+      - name: Build React app for the native shell
+        if: env.HAS_SIGNING == 'true'
+        run: npm run build:mobile
+
+      - name: Sync web build into the Android project
+        if: env.HAS_SIGNING == 'true'
+        run: npx cap sync android
+
+      - name: Decode keystore
+        if: env.HAS_SIGNING == 'true'
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      - name: Make gradlew executable
+        if: env.HAS_SIGNING == 'true'
+        run: chmod +x android/gradlew
+
+      - name: Build signed release AAB
+        if: env.HAS_SIGNING == 'true'
+        working-directory: frontend/android
+        env:
+          BIZKART_KEYSTORE_PATH: release.keystore
+          BIZKART_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BIZKART_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          BIZKART_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Upload signed AAB artifact
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bizkart-release-aab
+          path: frontend/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

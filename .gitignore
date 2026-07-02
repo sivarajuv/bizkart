@@ -1,0 +1,20 @@
+# Maven build output (backend) — never commit compiled classes/jars
+backend/target/
+
+# Node dependencies / build output (frontend) — also covered by frontend/.gitignore
+frontend/node_modules/
+frontend/build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/backend.zip
+backend/bizkart.pem
