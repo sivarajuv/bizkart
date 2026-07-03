@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const api = axios.create({ baseURL: '' });
-api.interceptors.request.use(cfg => {
-  const t = localStorage.getItem('kk_token');
-  if (t) cfg.headers = { ...cfg.headers, Authorization: `Bearer ${t}` };
-  return cfg;
-});
+import api from '../services/api';
 
 const EMPTY = { title: '', message: '', targetType: 'ALL', shopId: null };
 const STATUS_COLOR = { DRAFT: '#f59e0b', SENT: '#16a34a', SCHEDULED: '#3b82f6' };
