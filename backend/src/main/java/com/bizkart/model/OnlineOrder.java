@@ -68,7 +68,13 @@ public class OnlineOrder {
 
     private BigDecimal manualDiscountValue;
 
-    @Column(nullable = false)
+    // columnDefinition carries an explicit DEFAULT so that when Hibernate's
+    // ddl-auto=update issues "ALTER TABLE ... ADD COLUMN ... NOT NULL" against
+    // an existing online_orders table (one that already has rows), Postgres
+    // can backfill the new column instead of rejecting the migration with
+    // "column contains null values". Without this, adding any NOT NULL
+    // column to a non-empty table fails on every deploy after the first.
+    @Column(nullable = false, columnDefinition = "numeric(38,2) default 0")
     private BigDecimal manualDiscountAmount = BigDecimal.ZERO;
 
     @Column(nullable = false)

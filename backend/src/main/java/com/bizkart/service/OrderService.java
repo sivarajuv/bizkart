@@ -54,6 +54,8 @@ public class OrderService {
         String upiTransactionId,
         String cardLast4,
         String cardType,
+        String discountType,
+        BigDecimal discountValue,
         List<CartItem> items
     ) {}
 
@@ -124,18 +126,44 @@ public class OrderService {
             orderItems.add(orderItemRepository.save(item));
         }
 
+        // ── Discount on the bill (applied at sale time, POS/pickup) ──────
+        Order.DiscountType discountType = null;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (request.discountType() != null && !request.discountType().isBlank() && request.discountValue() != null) {
+            if (request.discountValue().compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Discount value must be positive");
+            }
+            try {
+                discountType = Order.DiscountType.valueOf(request.discountType());
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Invalid discount type");
+            }
+            if (discountType == Order.DiscountType.PERCENT) {
+                if (request.discountValue().compareTo(new BigDecimal("100")) > 0) {
+                    throw new RuntimeException("Percentage discount cannot exceed 100%");
+                }
+                discountAmount = total.multiply(request.discountValue()).divide(new BigDecimal("100"));
+            } else {
+                discountAmount = request.discountValue();
+            }
+            if (discountAmount.compareTo(total) > 0) {
+                discountAmount = total;
+            }
+        }
+        BigDecimal finalTotal = total.subtract(discountAmount);
+
         BigDecimal requestedPaidAmount = request.amountPaid() == null ? null : request.amountPaid().max(BigDecimal.ZERO);
         BigDecimal amountPaid;
         if (creditSale) {
-            amountPaid = requestedPaidAmount == null ? BigDecimal.ZERO : requestedPaidAmount.min(total);
+            amountPaid = requestedPaidAmount == null ? BigDecimal.ZERO : requestedPaidAmount.min(finalTotal);
         } else {
-            if (requestedPaidAmount != null && requestedPaidAmount.compareTo(total) < 0) {
+            if (requestedPaidAmount != null && requestedPaidAmount.compareTo(finalTotal) < 0) {
                 throw new RuntimeException("Use credit payment method when payment is less than bill total");
             }
-            amountPaid = total;
+            amountPaid = finalTotal;
         }
 
-        BigDecimal balanceDue = total.subtract(amountPaid);
+        BigDecimal balanceDue = finalTotal.subtract(amountPaid);
         Order.PaymentStatus paymentStatus = balanceDue.compareTo(BigDecimal.ZERO) == 0
             ? Order.PaymentStatus.PAID
             : amountPaid.compareTo(BigDecimal.ZERO) > 0 ? Order.PaymentStatus.PARTIAL : Order.PaymentStatus.DUE;
@@ -148,11 +176,14 @@ public class OrderService {
         savedOrder.setCustomer(customer);
         savedOrder.setCustomerName(defaultCustomerName(request.customerName()));
         savedOrder.setCustomerPhone(blankToNull(request.customerPhone()));
-        savedOrder.setTotalAmount(total);
+        savedOrder.setDiscountType(discountType);
+        savedOrder.setDiscountValue(discountType != null ? request.discountValue() : null);
+        savedOrder.setDiscountAmount(discountAmount);
+        savedOrder.setTotalAmount(finalTotal);
         savedOrder.setAmountPaid(amountPaid);
         savedOrder.setBalanceDue(balanceDue);
         savedOrder.setTotalCost(totalCost);
-        savedOrder.setGrossProfit(total.subtract(totalCost));
+        savedOrder.setGrossProfit(finalTotal.subtract(totalCost));
         savedOrder.setPaymentStatus(paymentStatus);
         savedOrder.setItems(orderItems);
 

@@ -49,6 +49,20 @@ public class Order {
     @Column(nullable = false)
     private BigDecimal grossProfit = BigDecimal.ZERO;
 
+    // Discount applied at time of sale (POS/pickup) — percent of the bill or
+    // a flat rupee amount, resolved into discountAmount at checkout time.
+    // discountAmount uses an explicit DB-level DEFAULT so that Hibernate's
+    // ddl-auto=update can add this NOT NULL column to the existing (non-
+    // empty) orders table without failing — see the manual_discount_amount
+    // incident on online_orders for why this matters.
+    @Enumerated(EnumType.STRING)
+    private DiscountType discountType;
+
+    private BigDecimal discountValue;
+
+    @Column(nullable = false, columnDefinition = "numeric(38,2) default 0")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
@@ -83,6 +97,10 @@ public class Order {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public enum DiscountType {
+        PERCENT, FLAT
     }
 
     public enum PaymentMethod {

@@ -39,8 +39,15 @@ public class Shop {
     @Column(length = 255)
     private String address;
 
-    @Lob
-    @Column(name = "upi_qr_image")
+    // Intentionally NOT @Lob. On PostgreSQL, Hibernate maps a @Lob String to
+    // an "oid" large-object column and reads it back through the JDBC CLOB
+    // stream API (ClobJdbcType / DataHelper.extractString) — that stream
+    // access is what throws "Unable to access lob stream" (seen on the
+    // customer shop-list/select flow, which is the first place that
+    // actually reads this column back out of the DB). Base64 data-URIs
+    // stored here are plain text, not a real binary large object, so a
+    // TEXT column read as a normal String avoids the CLOB path entirely.
+    @Column(name = "upi_qr_image", columnDefinition = "TEXT")
     private String upiQrImage;
 
     private Double latitude;

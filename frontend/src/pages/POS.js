@@ -15,8 +15,18 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
   const [upiTxn, setUpiTxn] = useState('');
   const [cardLast4, setCardLast4] = useState('');
   const [cardType, setCardType] = useState('VISA');
+  const [discType, setDiscType] = useState('PERCENT');
+  const [discValue, setDiscValue] = useState('');
   const [loading, setLoading] = useState(false);
   const fmt = (value) => `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+  const discountAmount = (() => {
+    const v = Number(discValue || 0);
+    if (!v || v < 0) return 0;
+    const raw = discType === 'PERCENT' ? (total * Math.min(v, 100)) / 100 : v;
+    return Math.min(raw, total);
+  })();
+  const billTotal = Math.max(total - discountAmount, 0);
 
   useEffect(() => {
     customerAPI.getAll().then((response) => setCustomers(response.data.slice(0, 50))).catch(() => {});
@@ -27,11 +37,11 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
       setAmountPaid('0');
     }
     if (method !== 'CREDIT') {
-      setAmountPaid(String(total));
+      setAmountPaid(String(billTotal));
     }
-  }, [method, total]);
+  }, [method, billTotal]);
 
-  const balanceDue = Math.max(total - Number(amountPaid || 0), 0);
+  const balanceDue = Math.max(billTotal - Number(amountPaid || 0), 0);
   const filteredCustomers = customers.filter((item) => {
     const needle = `${customer.name} ${customer.phone}`.trim().toLowerCase();
     if (!needle) return false;
@@ -45,10 +55,12 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
         customerName: customer.name || 'Walk-in Customer',
         customerPhone: customer.phone,
         paymentMethod: method,
-        amountPaid: method === 'CREDIT' ? Number(amountPaid || 0) : total,
+        amountPaid: method === 'CREDIT' ? Number(amountPaid || 0) : billTotal,
         upiTransactionId: method === 'UPI' ? upiTxn : null,
         cardLast4: method === 'CARD' ? cardLast4 : null,
         cardType: method === 'CARD' ? cardType : null,
+        discountType: discValue !== '' && Number(discValue) > 0 ? discType : null,
+        discountValue: discValue !== '' && Number(discValue) > 0 ? Number(discValue) : null,
         items: items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
       };
       const response = await orderAPI.create(payload);
@@ -66,8 +78,24 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
         <h2 className="modal-title">Complete Sale</h2>
         <div className="payment-summary">
           <div className="payment-summary-row"><span>Items</span><span>{items.reduce((sum, item) => sum + item.quantity, 0)}</span></div>
-          <div className="payment-summary-row total"><span>Bill Amount</span><span>{fmt(total)}</span></div>
+          <div className="payment-summary-row"><span>Subtotal</span><span>{fmt(total)}</span></div>
+          {discountAmount > 0 && <div className="payment-summary-row"><span>Discount</span><span>−{fmt(discountAmount)}</span></div>}
+          <div className="payment-summary-row total"><span>Bill Amount</span><span>{fmt(billTotal)}</span></div>
         </div>
+
+        <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Discount</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select className="form-select" style={{ width: 90 }} value={discType} onChange={(e) => setDiscType(e.target.value)}>
+              <option value="PERCENT">%</option>
+              <option value="FLAT">₹</option>
+            </select>
+            <input className="form-input" type="number" min="0" style={{ flex: 1 }}
+              placeholder={discType === 'PERCENT' ? 'e.g. 10' : 'e.g. 50'}
+              value={discValue} onChange={(e) => setDiscValue(e.target.value)} />
+          </div>
+        </div>
+
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Customer Name</label>
@@ -126,7 +154,7 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
           <div className="card" style={{ padding: 16, marginBottom: 16 }}>
             <div className="form-group">
               <label className="form-label">Amount Received Now</label>
-              <input className="form-input" type="number" min="0" max={total} step="0.01" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} />
+              <input className="form-input" type="number" min="0" max={billTotal} step="0.01" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} />
             </div>
             <div className="payment-summary">
               <div className="payment-summary-row"><span>Collected Now</span><span>{fmt(amountPaid || 0)}</span></div>
@@ -137,7 +165,7 @@ function PaymentModal({ total, onClose, onSuccess, upiQrImage, shopName }) {
 
         <div style={{ display: 'flex', gap: 12 }}>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
-          <button className="btn btn-primary" onClick={handlePay} disabled={loading} style={{ flex: 2 }}>{loading ? 'Processing...' : method === 'CREDIT' ? 'Save Credit Sale' : `Pay ${fmt(total)}`}</button>
+          <button className="btn btn-primary" onClick={handlePay} disabled={loading} style={{ flex: 2 }}>{loading ? 'Processing...' : method === 'CREDIT' ? 'Save Credit Sale' : `Pay ${fmt(billTotal)}`}</button>
         </div>
       </div>
     </div>
