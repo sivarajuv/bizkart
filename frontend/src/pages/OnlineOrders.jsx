@@ -47,13 +47,36 @@ function StatusBadge({ status }) {
   return <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background:c.bg||'#f3f4f6', color:c.color||'#374151' }}>{c.label||status}</span>;
 }
 
-function OrderCard({ order, onUpdate }) {
+function OrderCard({ order, onUpdate, onApplyDiscount }) {
   const [open, setOpen] = useState(false);
   const [note, setNote]  = useState('');
   const [busy, setBusy]  = useState(false);
   const [waBusy, setWaBusy] = useState(false);
   const [waErr, setWaErr]   = useState('');
+  const [discType, setDiscType]   = useState(order.manualDiscountType || 'PERCENT');
+  const [discValue, setDiscValue] = useState(order.manualDiscountValue ?? '');
+  const [discBusy, setDiscBusy]   = useState(false);
+  const [discErr, setDiscErr]     = useState('');
   const active = !['DELIVERED','PICKED_UP','CANCELLED','REFUNDED'].includes(order.status);
+
+  const applyDiscount = async () => {
+    setDiscErr(''); setDiscBusy(true);
+    try {
+      await onApplyDiscount(order.id, discValue === '' ? null : discType, discValue === '' ? null : Number(discValue));
+    } catch (ex) {
+      setDiscErr(ex.response?.data?.error || 'Could not apply discount.');
+    } finally { setDiscBusy(false); }
+  };
+
+  const clearDiscount = async () => {
+    setDiscErr(''); setDiscBusy(true);
+    try {
+      setDiscValue('');
+      await onApplyDiscount(order.id, null, null);
+    } catch (ex) {
+      setDiscErr(ex.response?.data?.error || 'Could not clear discount.');
+    } finally { setDiscBusy(false); }
+  };
 
   const advance = async (newStatus) => {
     setBusy(true);
@@ -117,6 +140,36 @@ function OrderCard({ order, onUpdate }) {
           {order.deliveryAddressText && <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 12px', marginBottom:10, fontSize:13 }}>📍 {order.deliveryAddressText}</div>}
           {order.customerNotes && <div style={{ background:'#fffbeb', borderRadius:8, padding:'9px 12px', marginBottom:10, fontSize:13 }}>💬 {order.customerNotes}</div>}
 
+          <div style={{ background:'#f9fafb', borderRadius:8, padding:'10px 12px', marginBottom:10 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#374151', marginBottom:8 }}>💸 Discount on order value</div>
+            <div style={{ display:'flex', gap:7, alignItems:'center', flexWrap:'wrap' }}>
+              <select value={discType} onChange={e => setDiscType(e.target.value)}
+                style={{ padding:'7px 8px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:12, color:'#111' }}>
+                <option value="PERCENT">%</option>
+                <option value="FLAT">₹</option>
+              </select>
+              <input type="number" min="0" placeholder={discType === 'PERCENT' ? 'e.g. 10' : 'e.g. 50'}
+                value={discValue} onChange={e => setDiscValue(e.target.value)}
+                style={{ width:90, padding:'7px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:12, color:'#111' }} />
+              <button onClick={applyDiscount} disabled={discBusy || discValue === ''}
+                style={{ padding:'7px 14px', border:'none', borderRadius:8, background:'#16a34a', color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                {discBusy ? 'Applying…' : 'Apply'}
+              </button>
+              {Number(order.manualDiscountAmount) > 0 && (
+                <button onClick={clearDiscount} disabled={discBusy}
+                  style={{ padding:'7px 14px', border:'1px solid #fecaca', borderRadius:8, background:'#fff', color:'#ef4444', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                  Clear
+                </button>
+              )}
+            </div>
+            {Number(order.manualDiscountAmount) > 0 && (
+              <div style={{ fontSize:12, color:'#15803d', marginTop:7, fontWeight:600 }}>
+                Applied: {order.manualDiscountType === 'PERCENT' ? `${order.manualDiscountValue}%` : fmt(order.manualDiscountValue)} off (−{fmt(order.manualDiscountAmount)})
+              </div>
+            )}
+            {discErr && <div style={{ color:'#b91c1c', fontSize:12, marginTop:7 }}>{discErr}</div>}
+          </div>
+
           <button onClick={notifyWhatsApp} disabled={waBusy}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', marginBottom:10, border:'1px solid #bbf7d0', borderRadius:8, background:'#f0fdf4', color:'#15803d', fontWeight:700, fontSize:13, cursor:'pointer' }}>
             📱 {waBusy ? 'Opening…' : 'Notify via WhatsApp'}
@@ -166,6 +219,15 @@ export default function OnlineOrders() {
     if (o) { o.status = status; o.statusHistory = [...(o.statusHistory||[]), { status, createdAt: new Date().toISOString(), note }]; }
     setOrders([...liveOrders]);
     try { await onlineOrderAPI.updateStatus(id, status, note); } catch {}
+  };
+
+  const handleApplyDiscount = async (id, type, value) => {
+    const res = await onlineOrderAPI.applyDiscount(id, type, value);
+    // Server is the source of truth for the recomputed total/discount fields.
+    const updated = res.data;
+    const idx = liveOrders.findIndex(x => x.id === id);
+    if (idx >= 0) liveOrders[idx] = updated;
+    setOrders([...liveOrders]);
   };
 
   const active  = orders.filter(o => !['DELIVERED','PICKED_UP','CANCELLED','REFUNDED'].includes(o.status));
@@ -220,7 +282,7 @@ export default function OnlineOrders() {
 
       {shown.length === 0
         ? <div style={{ textAlign:'center', padding:50, color:'#9ca3af' }}><div style={{ fontSize:36, marginBottom:10 }}>📦</div>No orders to show</div>
-        : shown.map(o => <OrderCard key={o.id} order={o} onUpdate={handleUpdate} />)
+        : shown.map(o => <OrderCard key={o.id} order={o} onUpdate={handleUpdate} onApplyDiscount={handleApplyDiscount} />)
       }
       <div style={{ textAlign:'center', fontSize:11, color:'#9ca3af', padding:'12px 0' }}>Auto-refreshes every 30 seconds</div>
     </div>

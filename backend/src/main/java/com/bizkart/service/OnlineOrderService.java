@@ -230,6 +230,75 @@ public class OnlineOrderService {
         }
         order.getStatusHistory().add(entry);
 
+        OnlineOrder saved = orderRepo.save(order);
+
+        // Notify the CUSTOMER on key milestones only (not every intermediate
+        // status) — avoids spamming while still keeping them informed at the
+        // stages that matter. Non-blocking: a notification failure must
+        // never fail the status update itself.
+        if (whatsAppService != null && (
+                newStatus == OnlineOrder.OrderStatus.CONFIRMED
+                || newStatus == OnlineOrder.OrderStatus.OUT_FOR_DELIVERY
+                || newStatus == OnlineOrder.OrderStatus.DELIVERED
+                || newStatus == OnlineOrder.OrderStatus.PICKED_UP)) {
+            try {
+                whatsAppService.notifyCustomerStatusUpdate(saved);
+            } catch (Exception e) {
+                log.error("WhatsApp status notification failed for order {}: {}",
+                        saved.getOrderNumber(), e.getMessage(), e);
+            }
+        }
+
+        return saved;
+    }
+
+    /**
+     * Apply (or replace) a manual discount on an order's total — flat rupee
+     * amount or percent of the order value — independent of coupon codes.
+     * Recomputed from the order's fixed components (subtotal + deliveryFee
+     * - couponCode/loyalty discount) each time, so calling this twice with
+     * different values replaces rather than compounds the discount.
+     * Pass value=null / type=null to clear an existing manual discount.
+     */
+    @Transactional
+    public OnlineOrder applyManualDiscount(
+        Long orderId,
+        OnlineOrder.ManualDiscountType type,
+        BigDecimal value
+    ) {
+        OnlineOrder order = orderRepo.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+        BigDecimal preDiscountTotal = order.getSubtotal()
+            .add(order.getDeliveryFee())
+            .subtract(order.getDiscount());
+        if (preDiscountTotal.compareTo(BigDecimal.ZERO) < 0) preDiscountTotal = BigDecimal.ZERO;
+
+        BigDecimal manualAmount = BigDecimal.ZERO;
+        if (type != null && value != null) {
+            if (value.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Discount value must be positive");
+            }
+            if (type == OnlineOrder.ManualDiscountType.PERCENT) {
+                if (value.compareTo(new BigDecimal("100")) > 0) {
+                    throw new RuntimeException("Percentage discount cannot exceed 100%");
+                }
+                manualAmount = preDiscountTotal.multiply(value)
+                    .divide(new BigDecimal("100"));
+            } else {
+                manualAmount = value;
+            }
+            // Never let the discount exceed the order value itself.
+            if (manualAmount.compareTo(preDiscountTotal) > 0) {
+                manualAmount = preDiscountTotal;
+            }
+        }
+
+        order.setManualDiscountType(type);
+        order.setManualDiscountValue(value);
+        order.setManualDiscountAmount(manualAmount);
+        order.setTotalAmount(preDiscountTotal.subtract(manualAmount).max(BigDecimal.ZERO));
+
         return orderRepo.save(order);
     }
 

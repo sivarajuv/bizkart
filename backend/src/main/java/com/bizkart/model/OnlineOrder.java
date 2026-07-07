@@ -59,6 +59,18 @@ public class OnlineOrder {
     @Column(nullable = false)
     private BigDecimal couponDiscount = BigDecimal.ZERO;
 
+    // Manual discount applied by shop staff on the order total (independent
+    // of coupon codes) — either a flat rupee amount or a percentage of the
+    // pre-discount total. manualDiscountAmount is the resolved rupee value,
+    // stored so history/receipts don't need to recompute it later.
+    @Enumerated(EnumType.STRING)
+    private ManualDiscountType manualDiscountType;
+
+    private BigDecimal manualDiscountValue;
+
+    @Column(nullable = false)
+    private BigDecimal manualDiscountAmount = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private int loyaltyPointsUsed = 0;
 
@@ -127,6 +139,7 @@ public class OnlineOrder {
         updatedAt = LocalDateTime.now();
     }
 
+    public enum ManualDiscountType { PERCENT, FLAT }
     public enum OrderType     { DELIVERY, PICKUP }
     public enum PaymentMethod { COD, UPI, CARD }
     public enum PaymentStatus { PENDING, PAID, FAILED, REFUNDED }

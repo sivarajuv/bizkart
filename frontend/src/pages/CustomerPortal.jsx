@@ -614,6 +614,7 @@ function ProductList({ shop, cart, dispatch, onBack, onCheckout }) {
 function Checkout({ shop, cart, dispatch, customer, onBack, onPlaced }) {
   const [orderType, setOrderType]       = useState('DELIVERY');
   const [payment, setPayment]           = useState('COD');
+  const [upiRef, setUpiRef]             = useState('');
   const [addr, setAddr]                 = useState({ line1: '', line2: '', city: '', pincode: '', landmark: '' });
   const [couponCode, setCouponCode]     = useState('');
   const [couponResult, setCouponResult] = useState(null);
@@ -666,6 +667,7 @@ function Checkout({ shop, cart, dispatch, customer, onBack, onPlaced }) {
         orderType,
         deliveryAddress: addressText,
         paymentMethod: payment,
+        paymentReference: payment === 'UPI' && upiRef.trim() ? upiRef.trim() : null,
         customerNotes: '',
         couponCode: couponResult ? couponResult.code : null,
         loyaltyPointsToRedeem: redeemPoints > 0 ? redeemPoints : null,
@@ -804,6 +806,30 @@ function Checkout({ shop, cart, dispatch, customer, onBack, onPlaced }) {
               </div>
             ))}
           </div>
+
+          {payment === 'UPI' && (
+            <div style={{ marginTop: 12, padding: 14, background: '#fafafa', borderRadius: 12, border: '1px solid #eee' }}>
+              {shop.upiQrImage ? (
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <img src={shop.upiQrImage} alt={`${shop.name} UPI QR`}
+                    style={{ width: 200, maxWidth: '100%', borderRadius: 12, border: '1px solid #e5e7eb' }} />
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
+                    Scan with any UPI app and pay {fmt(total)} to {shop.name}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, textAlign: 'center' }}>
+                  This store hasn't set up a UPI QR code yet — pay via your UPI app using their number and enter the reference below.
+                </div>
+              )}
+              <input
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}
+                placeholder="UPI transaction reference (optional)"
+                value={upiRef}
+                onChange={e => setUpiRef(e.target.value)}
+              />
+            </div>
+          )}
         </Sec>
 
         <ErrBox msg={err} />

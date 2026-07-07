@@ -2,15 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { customerAPI, orderAPI } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import LiveOrderWidget from '../components/LiveOrderWidget';
+import OrderDetailsModal from '../components/OrderDetailsModal';
+
+const ORDER_STATUS_CFG = {
+  PENDING:   { label: 'Active',    color: '#f59e0b', bg: '#fffbeb' },
+  COMPLETED: { label: 'Completed', color: '#10b981', bg: '#f0fdf4' },
+  CANCELLED: { label: 'Cancelled', color: '#ef4444', bg: '#fef2f2' },
+  REFUNDED:  { label: 'Refunded',  color: '#6b7280', bg: '#f3f4f6' },
+};
 
 export default function Dashboard({ onNavigate }) {
   const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [topProducts, setTopProducts] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [categoryStats, setCategoryStats] = useState([]);
   const [customerSummary, setCustomerSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [orderFilter, setOrderFilter] = useState('ALL');
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -24,7 +34,7 @@ export default function Dashboard({ onNavigate }) {
         ]);
         setStats(statsRes.data);
         setTopProducts(topProductsRes.data.slice(0, 5));
-        setRecentOrders(ordersRes.data.slice(0, 5));
+        setAllOrders(ordersRes.data);
         setCategoryStats(categoriesRes.data);
         setCustomerSummary(customerSummaryRes.data);
       } catch (error) {
@@ -116,13 +126,31 @@ export default function Dashboard({ onNavigate }) {
 
       <div style={{ padding: '0 32px' }}>
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <h3 className="chart-title" style={{ marginBottom: 0 }}>Recent Orders</h3>
-            <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('pos')}>+ New Sale</button>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 4, background: '#f3f4f6', borderRadius: 10, padding: 4 }}>
+                {[
+                  { k: 'ALL', l: 'All' },
+                  { k: 'PENDING', l: 'Active' },
+                  { k: 'COMPLETED', l: 'Completed/Delivered' },
+                ].map(f => (
+                  <button key={f.k} onClick={() => setOrderFilter(f.k)}
+                    style={{ padding: '6px 12px', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, background: orderFilter === f.k ? '#fff' : 'transparent', color: orderFilter === f.k ? '#111' : '#6b7280', boxShadow: orderFilter === f.k ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('pos')}>+ New Sale</button>
+            </div>
           </div>
-          {recentOrders.length === 0 ? (
-            <p className="text-muted text-sm">No orders yet.</p>
-          ) : (
+          {(() => {
+            const filtered = orderFilter === 'ALL' ? allOrders : allOrders.filter(o => o.status === orderFilter);
+            const recentOrders = filtered.slice(0, 5);
+            if (recentOrders.length === 0) {
+              return <p className="text-muted text-sm">No orders to show.</p>;
+            }
+            return (
             <div className="table-container">
               <table>
                 <thead>
@@ -133,29 +161,39 @@ export default function Dashboard({ onNavigate }) {
                     <th>Total</th>
                     <th>Paid</th>
                     <th>Due</th>
+                    <th>Status</th>
                     <th>Payment</th>
                     <th>Date</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentOrders.map((order) => (
-                    <tr key={order.id}>
+                  {recentOrders.map((order) => {
+                    const sc = ORDER_STATUS_CFG[order.status] || {};
+                    return (
+                    <tr key={order.id} onClick={() => setSelectedOrderId(order.id)} style={{ cursor: 'pointer' }}>
                       <td style={{ fontWeight: 600, color: 'var(--primary)', fontSize: 12 }}>{order.orderNumber}</td>
                       <td>{order.customerName || 'Walk-in'}</td>
                       <td>{order.items?.length || 0}</td>
                       <td style={{ fontWeight: 600 }}>{fmt(order.totalAmount)}</td>
                       <td>{fmt(order.amountPaid)}</td>
                       <td>{fmt(order.balanceDue)}</td>
+                      <td><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.bg || '#f3f4f6', color: sc.color || '#374151' }}>{sc.label || order.status}</span></td>
                       <td><span className="badge badge-info">{order.paymentMethod}{order.balanceDue > 0 ? ` / ${order.paymentStatus}` : ''}</span></td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{new Date(order.createdAt).toLocaleString('en-IN')}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
+
+      {selectedOrderId && (
+        <OrderDetailsModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+      )}
     </div>
   );
 }

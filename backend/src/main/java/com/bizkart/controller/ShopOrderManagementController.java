@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @RestController
@@ -65,6 +66,33 @@ public class ShopOrderManagementController {
             );
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid status value"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Apply a manual discount to an order's total — percent or flat rupee
+     * amount. Body: { "type": "PERCENT"|"FLAT", "value": number }.
+     * Send { "type": null, "value": null } (or omit both) to clear it.
+     */
+    @PatchMapping("/{id}/discount")
+    public ResponseEntity<?> applyDiscount(
+        @PathVariable Long id,
+        @RequestBody Map<String, Object> body
+    ) {
+        try {
+            String typeStr = (String) body.get("type");
+            Object valueObj = body.get("value");
+
+            OnlineOrder.ManualDiscountType type = (typeStr == null || typeStr.isBlank())
+                ? null : OnlineOrder.ManualDiscountType.valueOf(typeStr);
+            BigDecimal value = valueObj == null
+                ? null : new BigDecimal(valueObj.toString());
+
+            return ResponseEntity.ok(orderService.applyManualDiscount(id, type, value));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid discount type or value"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

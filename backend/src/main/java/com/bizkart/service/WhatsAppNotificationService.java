@@ -163,6 +163,100 @@ public class WhatsAppNotificationService {
         }
     }
 
+    /**
+     * Resolve the CUSTOMER's phone number for status-update notifications.
+     * Unlike resolvePhone() (which targets the shop's own number, used for
+     * new-order alerts to the shop owner), status updates must reach the
+     * customer who placed the order — this was the missing half of the
+     * WhatsApp integration: the shop got notified, the customer never did.
+     */
+    public String resolveCustomerPhone(OnlineOrder order) {
+        if (order.getCustomerAccount() != null
+                && order.getCustomerAccount().getPhone() != null
+                && !order.getCustomerAccount().getPhone().isBlank()) {
+            return order.getCustomerAccount().getPhone();
+        }
+        return null;
+    }
+
+    private static String statusLabel(OnlineOrder.OrderStatus status) {
+        switch (status) {
+            case PLACED: return "Order Placed";
+            case CONFIRMED: return "Order Confirmed";
+            case PREPARING: return "Being Prepared";
+            case READY: return "Ready for Pickup";
+            case OUT_FOR_DELIVERY: return "Out for Delivery";
+            case DELIVERED: return "Delivered";
+            case PICKED_UP: return "Picked Up";
+            case CANCELLED: return "Cancelled";
+            case REFUNDED: return "Refunded";
+            default: return status.name();
+        }
+    }
+
+    /**
+     * Build the customer-facing status-update message. Kept separate from
+     * buildOrderMessage() (which is the shop-facing "new order" alert).
+     */
+    public String buildStatusUpdateMessage(OnlineOrder order) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("📦 *Order Update*\n\n");
+        sb.append("Order: ").append(order.getOrderNumber()).append("\n");
+        sb.append("Status: *").append(statusLabel(order.getStatus())).append("*\n");
+
+        if (order.getStatus() == OnlineOrder.OrderStatus.OUT_FOR_DELIVERY) {
+            sb.append("Your order is on its way!\n");
+        } else if (order.getStatus() == OnlineOrder.OrderStatus.DELIVERED
+                || order.getStatus() == OnlineOrder.OrderStatus.PICKED_UP) {
+            sb.append("Your order has been delivered. Enjoy!\n");
+        } else if (order.getStatus() == OnlineOrder.OrderStatus.CONFIRMED
+                && order.getEstimatedReadyAt() != null) {
+            sb.append("Estimated ready by: ").append(order.getEstimatedReadyAt()).append("\n");
+        }
+
+        sb.append("\nTotal: ₹").append(order.getTotalAmount()).append("\n");
+        sb.append("Thank you for shopping with us!");
+        return sb.toString();
+    }
+
+    /**
+     * Notify the CUSTOMER of an order status change. Unlike notifyNewOrder()
+     * (shop-facing), this targets the customer's own phone. Intended to be
+     * called only for key milestones (Confirmed, Out for Delivery,
+     * Delivered) — see OnlineOrderService.updateStatus — not every
+     * intermediate status, to avoid spamming the customer.
+     */
+    public void notifyCustomerStatusUpdate(OnlineOrder order) {
+        String phone = resolveCustomerPhone(order);
+        if (!enabled || phone == null || phone.isBlank()) {
+            log.warn("WhatsApp status update skipped for order {} — enabled={}, customer phone set={}.",
+                    order.getOrderNumber(), enabled, phone != null && !phone.isBlank());
+            return;
+        }
+
+        String message = buildStatusUpdateMessage(order);
+
+        if (apiUrl != null && !apiUrl.isBlank() && apiToken != null && !apiToken.isBlank()) {
+            sendViaBSP(message, phone, order.getOrderNumber());
+        } else {
+            // No BSP configured — same limitation as notifyNewOrder(): log
+            // the link server-side. A configured BSP is required for this to
+            // actually deliver automatically without a manual click.
+            log.info("WhatsApp status wa.me link for order {} (customer): {}",
+                    order.getOrderNumber(), buildWaLinkForMessage(phone, message));
+        }
+    }
+
+    private String buildWaLinkForMessage(String phone, String message) {
+        String num = normalizePhone(phone);
+        try {
+            String msg = java.net.URLEncoder.encode(message, "UTF-8");
+            return "https://wa.me/" + num + "?text=" + msg;
+        } catch (Exception e) {
+            return "https://wa.me/" + num;
+        }
+    }
+
     private void sendViaBSP(String message, String phone, String orderNumber) {
         try {
             HttpHeaders headers = new HttpHeaders();

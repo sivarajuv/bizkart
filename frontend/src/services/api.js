@@ -88,6 +88,9 @@ export const onlineOrderAPI = {
   getAll:    () => api.get('/api/shop-orders'),
   updateStatus: (id, status, note) =>
     api.patch(`/api/shop-orders/${id}/status`, { status, note }),
+  // type: 'PERCENT' | 'FLAT' | null (null clears the discount)
+  applyDiscount: (id, type, value) =>
+    api.patch(`/api/shop-orders/${id}/discount`, { type, value }),
 };
 
 // ── NEW: WhatsApp order notification (click-to-chat, no BSP account needed) ─
