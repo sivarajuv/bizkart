@@ -79,6 +79,7 @@ export const shopAPI = {
   // Available to ADMIN/MANAGER for their own shop, unlike the rest of
   // shopAPI which is SUPER_ADMIN-only on the backend.
   updateMyWhatsappPhone: (phone) => api.patch('/api/shops/my/whatsapp-phone', { phone }),
+  updateMyUpiQrImage: (upiQrImage) => api.patch('/api/shops/my/upi-qr-image', { upiQrImage }),
 };
 
 // ── NEW: Online Orders (shop staff) ────────────────────────────────────────

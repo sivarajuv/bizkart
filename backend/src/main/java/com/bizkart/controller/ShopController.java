@@ -53,6 +53,30 @@ public class ShopController {
         }
     }
 
+    /**
+     * Lets a shop's own staff (ADMIN/MANAGER) upload/replace their own
+     * shop's UPI QR code image. Mirrors updateMyWhatsappPhone above — full
+     * shop editing (ShopModal in the admin UI) is SUPER_ADMIN-only, which
+     * meant shop ADMINs had no way to actually save a QR image even though
+     * the customer checkout flow already displays it when present.
+     */
+    @PatchMapping("/my/upi-qr-image")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<?> updateMyUpiQrImage(
+        Authentication authentication,
+        @RequestBody Map<String, String> body
+    ) {
+        try {
+            User user = currentUserService.requireUser(authentication);
+            Shop shop = currentUserService.requireShop(user);
+            String image = body.getOrDefault("upiQrImage", "");
+            Shop updated = shopService.updateShop(shop.getId(), Map.of("upiQrImage", image));
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public List<Shop> getAllShops() {

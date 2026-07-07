@@ -115,6 +115,71 @@ function ShopModal({ shop, onClose, onSave }) {
   );
 }
 
+function MyShopQrCard({ shop }) {
+  const [image, setImage] = useState(shop?.upiQrImage || '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Please upload an image smaller than 2 MB');
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setImage(dataUrl);
+      setSaved(false);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setErr('');
+    setSaved(false);
+    try {
+      await shopAPI.updateMyUpiQrImage(image);
+      setSaved(true);
+    } catch (error) {
+      setErr(error.response?.data?.error || 'Could not save QR code');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <h3 className="chart-title">My Shop's UPI QR Code</h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
+        Shown to customers at checkout and to cashiers during UPI payments in POS.
+      </p>
+      <div className="form-group">
+        <input className="form-input" type="file" accept="image/*" onChange={handleFileChange} />
+        {image && (
+          <div style={{ marginTop: 12 }}>
+            <img src={image} alt="UPI QR" style={{ width: 180, maxWidth: '100%', borderRadius: 12, border: '1px solid var(--border)' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setImage(''); setSaved(false); }}>Remove QR</button>
+            </div>
+          </div>
+        )}
+      </div>
+      {err && <div style={{ background: '#fef2f2', color: '#b91c1c', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 14, border: '1px solid #fecaca' }}>{err}</div>}
+      {saved && <div style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 14, border: '1px solid #bbf7d0' }}>Saved.</div>}
+      <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save QR Code'}</button>
+    </div>
+  );
+}
+
 function UserModal({ user, shops, onClose, onSave }) {
   const hasBusinesses = shops.length > 0;
   const initialRole = user?.role || USER_ROLES.CASHIER;
@@ -315,6 +380,8 @@ export default function Users() {
       </div>
 
       <div className="page-content">
+        {!isSuperAdmin() && currentUser?.shop && <MyShopQrCard shop={currentUser.shop} />}
+
         <div className="responsive-four-grid" style={{ marginBottom: 24 }}>
           {[
             { label: 'Businesses', value: shops.length },

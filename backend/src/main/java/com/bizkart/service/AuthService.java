@@ -198,6 +198,14 @@ public class AuthService {
             shopPayload.put("name", user.getShop().getName());
             shopPayload.put("defaultLanguage", user.getShop().getDefaultLanguage());
             shopPayload.put("businessType", user.getShop().getBusinessType() == null || user.getShop().getBusinessType().isBlank() ? AppDefaults.DEFAULT_BUSINESS_TYPE : user.getShop().getBusinessType());
+            // phone/upiQrImage were previously omitted here, which silently
+            // broke every screen that reads them off the logged-in user's
+            // shop: AdminShell's WhatsApp Setup phone field, POS's UPI QR
+            // display at checkout, and the new "my shop QR" upload card —
+            // all read user.shop.phone / user.shop.upiQrImage from this
+            // payload, not a separate fetch.
+            shopPayload.put("phone", user.getShop().getPhone());
+            shopPayload.put("upiQrImage", user.getShop().getUpiQrImage());
             userPayload.put("shop", shopPayload);
         }
         return userPayload;

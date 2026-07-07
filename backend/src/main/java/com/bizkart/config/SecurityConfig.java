@@ -159,6 +159,8 @@ public class SecurityConfig {
                 // path too and shop staff could never reach it.
                 .requestMatchers(HttpMethod.PATCH, "/api/shops/my/whatsapp-phone")
                     .hasAnyRole("SUPER_ADMIN", "ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PATCH, "/api/shops/my/upi-qr-image")
+                    .hasAnyRole("SUPER_ADMIN", "ADMIN", "MANAGER")
                 .requestMatchers("/api/shops/**")
                     .hasRole("SUPER_ADMIN")
 
